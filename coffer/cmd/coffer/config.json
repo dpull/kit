@@ -1,0 +1,8 @@
+{
+	"http_addr": "localhost:8964",
+	"folder": "./temp",
+	"fs_type": "xor",
+	"fs_param": {
+		"key": "qwertyuiop[]"
+	}
+}
