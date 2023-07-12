@@ -5,19 +5,19 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
 func ignoreName(path string) bool {
-	name := filepath.Base(path)
-	switch name {
-	case ".svn":
-		return true
-	}
-	return false
+	return strings.Contains(path, ".svn") || strings.Contains(path, ".git")
 }
 
 func findEmptyDir(dir string, empty chan<- string) (int, error) {
+	if ignoreName(dir) {
+		return 0, nil
+	}
+
 	count := 0
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -28,16 +28,13 @@ func findEmptyDir(dir string, empty chan<- string) (int, error) {
 			return nil
 		}
 
-		if ignoreName(path) {
-			return nil
-		}
-
 		if d.IsDir() {
 			subCount, _ := findEmptyDir(path, empty)
 			count += subCount
 			return nil
 		}
 
+		count++
 		return nil
 	})
 	if count == 0 {
