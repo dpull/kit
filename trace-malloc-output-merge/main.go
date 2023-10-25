@@ -9,21 +9,28 @@ import (
 	"strings"
 )
 
-func readFile(path string) (map[string]int, error) {
+type info struct {
+	stackTrace string
+	size       int
+}
+
+const (
+	prefix = "malloc size:"
+	suffix = ", stack:"
+)
+
+func readFile(path string) ([]info, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	result := make(map[string]int)
+	merge := make(map[string]int, 1024*1024)
 
 	scanner := bufio.NewScanner(file)
 	var mallocSize int
 	var stackTrace strings.Builder
-
-	prefix := "malloc size:"
-	suffix := ", stack:"
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -41,48 +48,40 @@ func readFile(path string) (map[string]int, error) {
 			stackTrace.WriteString(line)
 			stackTrace.WriteString("\n")
 		} else {
-			// 处理下一个 malloc
 			if mallocSize > 0 {
-				result[stackTrace.String()] += mallocSize
+				merge[stackTrace.String()] += mallocSize
 			}
 			mallocSize = 0
 			stackTrace.Reset()
 		}
 	}
-	// 处理最后一个 malloc
 	if mallocSize > 0 {
-		result[stackTrace.String()] += mallocSize
+		merge[stackTrace.String()] += mallocSize
 	}
 
-	return result, nil
+	sorted := make([]info, 0, len(merge))
+	for k, v := range merge {
+		sorted = append(sorted, info{stackTrace: k, size: v})
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].size > sorted[j].size
+	})
+
+	return sorted, nil
 }
 
 func main() {
 	if len(os.Args) <= 1 {
-		fmt.Println("usage: exe file")
+		fmt.Println("usage: trace-malloc-output-merge file")
 		return
 	}
 
-	result, err := readFile(os.Args[1])
+	sorted, err := readFile(os.Args[1])
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	var sorted []struct {
-		key   string
-		value int
-	}
-	for k, v := range result {
-		sorted = append(sorted, struct {
-			key   string
-			value int
-		}{k, v})
-	}
-
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].value > sorted[j].value
-	})
 
 	file, err := os.Create(os.Args[2])
 	if err != nil {
@@ -94,7 +93,7 @@ func main() {
 	writer := bufio.NewWriter(file)
 
 	for _, kv := range sorted {
-		fmt.Fprintf(writer, "malloc size:%d\n%s\n\n", kv.value, kv.key)
+		fmt.Fprintf(writer, "%s%d%s\n%s\n\n", prefix, kv.size, suffix, kv.stackTrace)
 	}
 	writer.Flush()
 }
