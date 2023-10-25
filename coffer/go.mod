@@ -1,4 +1,4 @@
-module github.com/dpull/coffer
+module github.com/dpull/kit/coffer
 
 go 1.18
 

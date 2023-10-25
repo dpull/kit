@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/dpull/my-sock5/socks5"
 	"log"
 	"strings"
+
+	"github.com/dpull/kit/my-sock5/socks5"
 )
 
 type myRuleSet struct {

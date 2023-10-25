@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dpull/coffer/filesystem"
+	"github.com/dpull/kit/coffer/filesystem"
 	"golang.org/x/net/webdav"
 )
 
