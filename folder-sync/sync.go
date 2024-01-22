@@ -2,15 +2,14 @@ package main
 
 import (
 	"encoding/csv"
-	"io"
 	"os"
 	"path"
 	"sync"
 )
 
 const (
-	CopyProcCoNum = 1024
-	FileProcCoNum = 2048
+	CpProcCoNum = 8
+	RmProcCoNum = 2
 )
 
 type folderSync struct {
@@ -33,46 +32,34 @@ func makeFolderSync(diff, srcDir, dstDir string) *folderSync {
 
 func (fs *folderSync) Exec() {
 	var wg sync.WaitGroup
-	wg.Add(16)
-	for i := 0; i < 16; i++ {
+
+	wg.Add(CpProcCoNum)
+	for i := 0; i < CpProcCoNum; i++ {
 		go func() {
 			defer wg.Done()
 			for file := range fs.modified {
-				copyFile(path.Join(fs.dstDir, file), path.Join(fs.srcDir, file))
+				dst := path.Join(fs.dstDir, file)
+				dstDir := path.Dir(dst)
+				mkdirAll(dstDir)
+				copyFile(dst, path.Join(fs.srcDir, file))
 			}
 		}()
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Add(RmProcCoNum)
+	for i := 0; i < RmProcCoNum; i++ {
+		go func() {
+			defer wg.Done()
+			for file := range fs.removed {
+				os.Remove(path.Join(fs.dstDir, file))
+			}
+		}()
+	}
 
-	}()
-	for file := range fs.changed {
-		go func(filePath string) {
-			copyFile(path.Join(fs.dstDir, filePath), path.Join(fs.srcDir, filePath))
-		}(file)
-	}
-	for file := range fs.removed {
-		os.Remove(path.Join(fs.dstDir, file))
-	}
+	readDiff(fs.diff, fs.modified, fs.removed)
+	close(fs.modified)
+	close(fs.removed)
 	wg.Wait()
-}
-
-func copyFile(dstName, srcName string) (written int64, err error) {
-	src, err := os.Open(srcName)
-	if err != nil {
-		return
-	}
-	defer src.Close()
-
-	dst, err := os.OpenFile(dstName, os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return
-	}
-	defer dst.Close()
-
-	return io.Copy(dst, src)
 }
 
 func readDiff(diffFile string, modified, removed chan<- string) error {

@@ -2,19 +2,16 @@ package main
 
 import (
 	"encoding/csv"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
 const (
-	FolderProcCoNum = 1024
-	FileProcCoNum   = 2048
+	FileProcCoNum = 2048
 
 	ColPath     = "Path"
 	ColModTime  = "ModTime"
@@ -23,23 +20,21 @@ const (
 )
 
 type folerVersion struct {
-	folder   chan string
-	files    chan string
+	wd       walkDir
 	filesVer chan fileVersion
 	wg       sync.WaitGroup
-	output   string
+	folder   string
 	basePath string
+	output   string
 }
 
 func makeFolderVersion(folder, basePath, output string) *folerVersion {
 	fv := new(folerVersion)
-	fv.folder = make(chan string, 1024*1024)
-	fv.files = make(chan string, 1024*1024)
 	fv.filesVer = make(chan fileVersion, 1024)
-	fv.folder <- folder
-	fv.output = output
+	fv.folder = folder
 	fv.basePath = basePath
-
+	fv.output = output
+	fv.wd.Init()
 	return fv
 }
 
@@ -48,15 +43,13 @@ func (fv *folerVersion) Exec() {
 
 	go func() {
 		defer fv.wg.Done()
-		defer close(fv.files)
-
-		getAllFiles(fv.folder, fv.files)
+		fv.wd.Exec(fv.folder)
 	}()
 
 	go func() {
 		defer fv.wg.Done()
 		defer close(fv.filesVer)
-		getFilesVersion(fv.basePath, fv.files, fv.filesVer)
+		getFilesVersion(fv.basePath, fv.wd.Files, fv.filesVer)
 	}()
 
 	go func() {
@@ -70,7 +63,7 @@ func (fv *folerVersion) Exec() {
 	go func() {
 		for {
 			time.Sleep(time.Second)
-			log.Printf("[stat]folder:%d, files:%d, filesVer:%d", len(fv.folder), len(fv.files), len(fv.filesVer))
+			log.Printf("[stat]files:%d, filesVer:%d", len(fv.wd.Files), len(fv.filesVer))
 		}
 	}()
 
@@ -98,7 +91,7 @@ func getFilesVersion(basePath string, files chan string, filesVer chan<- fileVer
 					log.Printf("get path:%s|%s rel failed, %s", basePath, path, err)
 					continue
 				}
-				
+
 				fileVer.modTime = st.ModTime().Unix()
 				fileVer.fileSize = st.Size()
 				fileVer.fileCRC = 0
@@ -106,46 +99,6 @@ func getFilesVersion(basePath string, files chan string, filesVer chan<- fileVer
 			}
 		}()
 	}
-	wg.Wait()
-}
-
-func getAllFiles(folders chan string, files chan<- string) {
-	var wg sync.WaitGroup
-	wg.Add(FolderProcCoNum)
-	foldersCnt := int64(len(folders))
-
-	for i := 0; i < FolderProcCoNum; i++ {
-		go func() {
-			defer wg.Done()
-
-			for folder := range folders {
-				filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
-					if err != nil {
-						log.Printf("walk dir:%s, path:%s failed, %s", folder, path, err)
-						return nil
-					}
-
-					if folder == path {
-
-						return nil
-					}
-
-					if d.IsDir() {
-						folders <- path
-						atomic.AddInt64(&foldersCnt, 1)
-						return nil
-					}
-					files <- path
-					return nil
-				})
-				left := atomic.AddInt64(&foldersCnt, -1)
-				if left == 0 {
-					close(folders)
-				}
-			}
-		}()
-	}
-
 	wg.Wait()
 }
 
