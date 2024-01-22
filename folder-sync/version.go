@@ -8,23 +8,37 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
+const (
+	FolderProcCoNum = 1024
+	FileProcCoNum   = 2048
+
+	ColPath     = "Path"
+	ColModTime  = "ModTime"
+	ColFileSize = "FileSize"
+	ColFileCRC  = "FileCRC"
+)
+
 type folerVersion struct {
+	folder   chan string
 	files    chan string
 	filesVer chan fileVersion
 	wg       sync.WaitGroup
-	folder   string
 	output   string
+	basePath string
 }
 
-func makeFolderVersion(folder, output string) *folerVersion {
+func makeFolderVersion(folder, basePath, output string) *folerVersion {
 	fv := new(folerVersion)
-	fv.files = make(chan string, 64)
-	fv.filesVer = make(chan fileVersion, 256)
-	fv.folder = folder
+	fv.folder = make(chan string, 1024*1024)
+	fv.files = make(chan string, 1024*1024)
+	fv.filesVer = make(chan fileVersion, 1024)
+	fv.folder <- folder
 	fv.output = output
+	fv.basePath = basePath
 
 	return fv
 }
@@ -36,16 +50,13 @@ func (fv *folerVersion) Exec() {
 		defer fv.wg.Done()
 		defer close(fv.files)
 
-		err := getAllFiles(fv.folder, fv.files)
-		if err != nil {
-			log.Printf("get all files failed, %s", err)
-		}
+		getAllFiles(fv.folder, fv.files)
 	}()
 
 	go func() {
 		defer fv.wg.Done()
 		defer close(fv.filesVer)
-		getFilesVersion(fv.files, fv.filesVer)
+		getFilesVersion(fv.basePath, fv.files, fv.filesVer)
 	}()
 
 	go func() {
@@ -59,18 +70,18 @@ func (fv *folerVersion) Exec() {
 	go func() {
 		for {
 			time.Sleep(time.Second)
-			log.Printf("[stat]files:%d, filesVer:%d", len(fv.files), len(fv.filesVer))
+			log.Printf("[stat]folder:%d, files:%d, filesVer:%d", len(fv.folder), len(fv.files), len(fv.filesVer))
 		}
 	}()
 
 	fv.wg.Wait()
 }
 
-func getFilesVersion(files chan string, filesVer chan<- fileVersion) {
+func getFilesVersion(basePath string, files chan string, filesVer chan<- fileVersion) {
 	var wg sync.WaitGroup
-	wg.Add(64)
+	wg.Add(FileProcCoNum)
 
-	for i := 0; i < 64; i++ {
+	for i := 0; i < FileProcCoNum; i++ {
 		go func() {
 			defer wg.Done()
 			var fileVer fileVersion
@@ -82,7 +93,12 @@ func getFilesVersion(files chan string, filesVer chan<- fileVersion) {
 					continue
 				}
 
-				fileVer.path = path
+				fileVer.path, err = filepath.Rel(basePath, path)
+				if err != nil {
+					log.Printf("get path:%s|%s rel failed, %s", basePath, path, err)
+					continue
+				}
+				
 				fileVer.modTime = st.ModTime().Unix()
 				fileVer.fileSize = st.Size()
 				fileVer.fileCRC = 0
@@ -93,25 +109,44 @@ func getFilesVersion(files chan string, filesVer chan<- fileVersion) {
 	wg.Wait()
 }
 
-func getAllFiles(dir string, files chan<- string) error {
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			log.Printf("walk dir:%s, path:%s failed, %s", dir, path, err)
-			return nil
-		}
+func getAllFiles(folders chan string, files chan<- string) {
+	var wg sync.WaitGroup
+	wg.Add(FolderProcCoNum)
+	foldersCnt := int64(len(folders))
 
-		if dir == path {
-			return nil
-		}
+	for i := 0; i < FolderProcCoNum; i++ {
+		go func() {
+			defer wg.Done()
 
-		if d.IsDir() {
-			return getAllFiles(path, files)
-		}
+			for folder := range folders {
+				filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
+					if err != nil {
+						log.Printf("walk dir:%s, path:%s failed, %s", folder, path, err)
+						return nil
+					}
 
-		files <- path
-		return nil
-	})
-	return err
+					if folder == path {
+
+						return nil
+					}
+
+					if d.IsDir() {
+						folders <- path
+						atomic.AddInt64(&foldersCnt, 1)
+						return nil
+					}
+					files <- path
+					return nil
+				})
+				left := atomic.AddInt64(&foldersCnt, -1)
+				if left == 0 {
+					close(folders)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
 }
 
 type fileVersion struct {
@@ -129,7 +164,7 @@ func outputVersion(output string, filesVer chan fileVersion) error {
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
-	err = writer.Write([]string{"Path", "ModTime", "FileSize", "FileCRC"})
+	err = writer.Write([]string{ColPath, ColModTime, ColFileSize, ColFileCRC})
 	if err != nil {
 		return err
 	}
