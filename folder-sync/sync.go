@@ -69,7 +69,7 @@ func (fs *folderSync) sync() {
 		}(file)
 	}
 	for file := range fs.removed {
-		os.Remove(file)
+		os.Remove(path.Join(fs.dstDir, file))
 	}
 	wg.Wait()
 }
