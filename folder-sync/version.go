@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type folerVersion struct {
@@ -20,8 +21,8 @@ type folerVersion struct {
 
 func makeFolderVersion(folder, output string) *folerVersion {
 	fv := new(folerVersion)
-	fv.files = make(chan string, 128)
-	fv.filesVer = make(chan fileVersion, 32)
+	fv.files = make(chan string, 64)
+	fv.filesVer = make(chan fileVersion, 256)
 	fv.folder = folder
 	fv.output = output
 
@@ -33,19 +34,33 @@ func (fv *folerVersion) Exec() {
 
 	go func() {
 		defer fv.wg.Done()
-		getAllFiles(fv.folder, fv.files)
-		close(fv.files)
+		defer close(fv.files)
+
+		err := getAllFiles(fv.folder, fv.files)
+		if err != nil {
+			log.Printf("get all files failed, %s", err)
+		}
 	}()
 
 	go func() {
 		defer fv.wg.Done()
+		defer close(fv.filesVer)
 		getFilesVersion(fv.files, fv.filesVer)
-		close(fv.filesVer)
 	}()
 
 	go func() {
 		defer fv.wg.Done()
-		outputVersion(fv.output, fv.filesVer)
+		err := outputVersion(fv.output, fv.filesVer)
+		if err != nil {
+			log.Panicf("get all files failed, %s", err)
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			log.Printf("[stat]files:%d, filesVer:%d", len(fv.files), len(fv.filesVer))
+		}
 	}()
 
 	fv.wg.Wait()
@@ -53,9 +68,9 @@ func (fv *folerVersion) Exec() {
 
 func getFilesVersion(files chan string, filesVer chan<- fileVersion) {
 	var wg sync.WaitGroup
-	wg.Add(128)
+	wg.Add(64)
 
-	for i := 0; i < 128; i++ {
+	for i := 0; i < 64; i++ {
 		go func() {
 			defer wg.Done()
 			var fileVer fileVersion
@@ -125,7 +140,7 @@ func outputVersion(output string, filesVer chan fileVersion) error {
 		row[2] = strconv.FormatInt(fileVer.fileSize, 10)
 		row[3] = strconv.FormatUint(fileVer.fileCRC, 10)
 
-		err = writer.Write([]string{"Path", "ModTime", "FileSize", "FileCRC"})
+		err = writer.Write(row)
 		if err != nil {
 			return err
 		}
