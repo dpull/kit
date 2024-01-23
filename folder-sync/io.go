@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/bytedance/gopkg/util/gopool"
 )
 
 func copyFile(dstName, srcName string) (written int64, err error) {
@@ -45,37 +47,30 @@ func mkdirAll(dir string) error {
 	return nil
 }
 
-type walkDir struct {
-	wg    sync.WaitGroup
-	Files chan string
+func WalkDir(dir string, files chan<- string) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go walk(&wg, files, dir)
+	wg.Wait()
 }
 
-func (wd *walkDir) walk(dir string) {
-	defer wd.wg.Done()
+func walk(wg *sync.WaitGroup, files chan<- string, dir string) {
+	defer wg.Done()
 
-	files, err := os.ReadDir(dir)
+	entry, err := os.ReadDir(dir)
 	if err != nil {
 		log.Printf("readdir %s failed, %s", dir, err)
 		return
 	}
-	for _, file := range files {
-		fullPath := filepath.Join(dir, file.Name())
-		if file.IsDir() {
-			wd.wg.Add(1)
-			go wd.walk(fullPath)
+	for _, e := range entry {
+		fullPath := filepath.Join(dir, e.Name())
+		if e.IsDir() {
+			wg.Add(1)
+			gopool.Go(func() {
+				walk(wg, files, fullPath)
+			})
 		} else {
-			wd.Files <- fullPath
+			files <- fullPath
 		}
 	}
-}
-
-func (wd *walkDir) Init() {
-	wd.Files = make(chan string, 1024*1024)
-}
-
-func (wd *walkDir) Exec(dir string) {
-	wd.wg.Add(1)
-	go wd.walk(dir)
-	wd.wg.Wait()
-	close(wd.Files)
 }

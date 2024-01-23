@@ -20,7 +20,7 @@ const (
 )
 
 type folerVersion struct {
-	wd       walkDir
+	files    chan string
 	filesVer chan fileVersion
 	wg       sync.WaitGroup
 	folder   string
@@ -30,11 +30,11 @@ type folerVersion struct {
 
 func makeFolderVersion(folder, basePath, output string) *folerVersion {
 	fv := new(folerVersion)
+	fv.files = make(chan string, 1024*1024)
 	fv.filesVer = make(chan fileVersion, 1024)
 	fv.folder = folder
 	fv.basePath = basePath
 	fv.output = output
-	fv.wd.Init()
 	return fv
 }
 
@@ -43,13 +43,14 @@ func (fv *folerVersion) Exec() {
 
 	go func() {
 		defer fv.wg.Done()
-		fv.wd.Exec(fv.folder)
+		defer close(fv.files)
+		WalkDir(fv.folder, fv.files)
 	}()
 
 	go func() {
 		defer fv.wg.Done()
 		defer close(fv.filesVer)
-		getFilesVersion(fv.basePath, fv.wd.Files, fv.filesVer)
+		getFilesVersion(fv.basePath, fv.files, fv.filesVer)
 	}()
 
 	go func() {
@@ -63,7 +64,7 @@ func (fv *folerVersion) Exec() {
 	go func() {
 		for {
 			time.Sleep(time.Second)
-			log.Printf("[stat]files:%d, filesVer:%d", len(fv.wd.Files), len(fv.filesVer))
+			log.Printf("[stat]files:%d, filesVer:%d", len(fv.files), len(fv.filesVer))
 		}
 	}()
 
