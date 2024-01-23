@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	CpProcCoNum = 8
+	CpProcCoNum = 32
 	RmProcCoNum = 2
 )
 

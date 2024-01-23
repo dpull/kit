@@ -50,7 +50,9 @@ func mkdirAll(dir string) error {
 func WalkDir(dir string, files chan<- string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go walk(&wg, files, dir)
+	gopool.Go(func() {
+		walk(&wg, files, dir)
+	})
 	wg.Wait()
 }
 

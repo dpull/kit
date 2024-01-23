@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"github.com/bytedance/gopkg/util/gopool"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	FileProcCoNum = 2048
+	FileProcCoNum = 256
 
 	ColPath     = "Path"
 	ColModTime  = "ModTime"
@@ -76,7 +77,7 @@ func getFilesVersion(basePath string, files chan string, filesVer chan<- fileVer
 	wg.Add(FileProcCoNum)
 
 	for i := 0; i < FileProcCoNum; i++ {
-		go func() {
+		gopool.Go(func() {
 			defer wg.Done()
 			var fileVer fileVersion
 
@@ -98,7 +99,7 @@ func getFilesVersion(basePath string, files chan string, filesVer chan<- fileVer
 				fileVer.fileCRC = 0
 				filesVer <- fileVer
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }
