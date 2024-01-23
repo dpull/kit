@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 )
 
@@ -40,7 +41,7 @@ func (fs *folderSync) Exec() {
 			defer wg.Done()
 			for file := range fs.modified {
 				dst := path.Join(fs.dstDir, file)
-				dstDir := path.Dir(dst)
+				dstDir := path.Dir(strings.ReplaceAll(dst, "\\", "/"))
 				mkdirAll(dstDir)
 				_, err := copyFile(dst, path.Join(fs.srcDir, file))
 				if err != nil {
