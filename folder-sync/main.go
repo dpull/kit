@@ -12,11 +12,10 @@ func main() {
 
 	args := flag.Args()
 	if *versionFlag {
-		if len(args) == 3 {
+		if len(args) == 2 {
 			folder := args[0]
-			basePath := args[1]
-			output := args[2]
-			makeFolderVersion(folder, basePath, output).Exec()
+			output := args[1]
+			makeFolderVersion(folder, output).Exec()
 			return
 		}
 	}
