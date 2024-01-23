@@ -2,13 +2,14 @@ package main
 
 import (
 	"encoding/csv"
+	"log"
 	"os"
 	"path"
 	"sync"
 )
 
 const (
-	CpProcCoNum = 32
+	CpProcCoNum = 64
 	RmProcCoNum = 2
 )
 
@@ -41,7 +42,10 @@ func (fs *folderSync) Exec() {
 				dst := path.Join(fs.dstDir, file)
 				dstDir := path.Dir(dst)
 				mkdirAll(dstDir)
-				copyFile(dst, path.Join(fs.srcDir, file))
+				_, err := copyFile(dst, path.Join(fs.srcDir, file))
+				if err != nil {
+					log.Printf("copy file failed, %s, %s", file, err)
+				}
 			}
 		}()
 	}

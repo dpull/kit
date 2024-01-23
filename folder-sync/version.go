@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	FileProcCoNum = 256
+	FileProcCoNum = 512
 
 	ColPath     = "Path"
 	ColModTime  = "ModTime"
@@ -31,7 +31,7 @@ type folerVersion struct {
 func makeFolderVersion(folder, output string) *folerVersion {
 	fv := new(folerVersion)
 	fv.files = make(chan string, 1024*1024)
-	fv.filesVer = make(chan fileVersion, 1024)
+	fv.filesVer = make(chan fileVersion, 4096)
 	fv.folder = folder
 	fv.output = output
 	return fv
