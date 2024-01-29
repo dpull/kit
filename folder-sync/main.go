@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	versionFlag := flag.Bool("version", false, "-version dir base_dir output.csv")
+	versionFlag := flag.Bool("version", false, "-version dir output.csv")
 	diffFlag := flag.Bool("diff", false, "-diff src_ver.csv dst_ver.csv output.csv")
 	syncFlag := flag.Bool("sync", false, "-sync diff.csv src_dir dst_dir")
 	checkFlag := flag.Bool("check", false, "-check diff.csv src_dir dst_dir")
