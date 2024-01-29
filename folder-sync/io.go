@@ -66,7 +66,7 @@ func mkdirAll(dir string) error {
 }
 
 func init() {
-	gopool.SetCap(4096)
+	gopool.SetCap(1024)
 }
 func WalkDir(dir string, files chan<- string) {
 	var wg sync.WaitGroup
