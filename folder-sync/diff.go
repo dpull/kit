@@ -93,6 +93,9 @@ func readVerToMap(verFile string, verMap map[string]fileVersion) {
 	filesVer := make(chan fileVersion, 1024)
 	go func() {
 		defer close(filesVer)
+		if verFile == "" {
+			return
+		}
 		err := readVersion(verFile, filesVer)
 		if err != nil {
 			log.Panic(err)
