@@ -2,16 +2,12 @@ package main
 
 import (
 	"encoding/csv"
+	"github.com/bytedance/gopkg/util/gopool"
 	"log"
 	"os"
 	"path"
 	"strings"
 	"sync"
-)
-
-const (
-	CpProcCoNum = 64
-	RmProcCoNum = 2
 )
 
 type folderSync struct {
@@ -35,31 +31,35 @@ func makeFolderSync(diff, srcDir, dstDir string) *folderSync {
 func (fs *folderSync) Exec() {
 	var wg sync.WaitGroup
 
-	wg.Add(CpProcCoNum)
-	for i := 0; i < CpProcCoNum; i++ {
-		go func() {
-			defer wg.Done()
-			for file := range fs.modified {
-				dst := path.Join(fs.dstDir, file)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for file := range fs.modified {
+			src := path.Join(fs.srcDir, file)
+			dst := path.Join(fs.dstDir, file)
+
+			wg.Add(1)
+			gopool.Go(func() {
+				defer wg.Done()
+
 				dstDir := path.Dir(strings.ReplaceAll(dst, "\\", "/"))
 				mkdirAll(dstDir)
-				_, err := copyFile(dst, path.Join(fs.srcDir, file))
+
+				os.Remove(dst)
+
+				_, err := copyFile(dst, src)
 				if err != nil {
 					log.Printf("copy file failed, %s, %s", file, err)
 				}
-			}
-		}()
-	}
-
-	wg.Add(RmProcCoNum)
-	for i := 0; i < RmProcCoNum; i++ {
-		go func() {
-			defer wg.Done()
-			for file := range fs.removed {
-				os.Remove(path.Join(fs.dstDir, file))
-			}
-		}()
-	}
+			})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for file := range fs.removed {
+			os.Remove(path.Join(fs.dstDir, file))
+		}
+	}()
 
 	readDiff(fs.diff, fs.modified, fs.removed)
 	close(fs.modified)

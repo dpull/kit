@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"os"
@@ -24,6 +25,23 @@ func copyFile(dstName, srcName string) (written int64, err error) {
 	defer dst.Close()
 
 	return io.Copy(dst, src)
+}
+
+func cmpFile(file1, file2 string) (bool, error) {
+	data1, err := os.ReadFile(file1)
+	if err != nil {
+		return false, err
+	}
+
+	data2, err := os.ReadFile(file2)
+	if err != nil {
+		return false, err
+	}
+
+	if len(data1) != len(data2) {
+		return false, nil
+	}
+	return bytes.Compare(data1, data2) == 0, nil
 }
 
 func exists(path string) bool {
