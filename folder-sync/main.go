@@ -31,8 +31,8 @@ func main() {
 			makeVersionDiff(srcVer, dstVer, output).Exec()
 			return
 		} else if len(args) == 2 {
-			srcVer := args[0]
-			dstVer := ""
+			srcVer := ""
+			dstVer := args[0]
 			output := args[1]
 
 			makeVersionDiff(srcVer, dstVer, output).Exec()
