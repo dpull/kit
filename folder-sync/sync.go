@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/csv"
-	"github.com/bytedance/gopkg/util/gopool"
 	"log"
 	"os"
 	"path"
 	"strings"
 	"sync"
+
+	"github.com/bytedance/gopkg/util/gopool"
 )
 
 type folderSync struct {
@@ -37,21 +38,7 @@ func (fs *folderSync) Exec() {
 		for file := range fs.modified {
 			src := path.Join(fs.srcDir, file)
 			dst := path.Join(fs.dstDir, file)
-
-			wg.Add(1)
-			gopool.Go(func() {
-				defer wg.Done()
-
-				dstDir := path.Dir(strings.ReplaceAll(dst, "\\", "/"))
-				mkdirAll(dstDir)
-
-				os.Remove(dst)
-
-				_, err := copyFile(dst, src)
-				if err != nil {
-					log.Printf("copy file failed, %s, %s", file, err)
-				}
-			})
+			syncFile(&wg, file, src, dst)
 		}
 	}()
 	go func() {
@@ -89,4 +76,21 @@ func readDiff(diffFile string, modified, removed chan<- string) error {
 		}
 	}
 	return nil
+}
+
+func syncFile(wg *sync.WaitGroup, file, dst, src string) {
+	wg.Add(1)
+	gopool.Go(func() {
+		defer wg.Done()
+
+		dstDir := path.Dir(strings.ReplaceAll(dst, "\\", "/"))
+		mkdirAll(dstDir)
+
+		os.Remove(dst)
+
+		_, err := copyFile(dst, src)
+		if err != nil {
+			log.Printf("copy file failed, %s, %s", file, err)
+		}
+	})
 }

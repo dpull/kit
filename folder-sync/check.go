@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/bytedance/gopkg/util/gopool"
 	"log"
 	"path"
 	"sync"
+
+	"github.com/bytedance/gopkg/util/gopool"
 )
 
 type folderCheck folderSync
@@ -28,21 +29,7 @@ func (fs *folderCheck) Exec() {
 		for file := range fs.modified {
 			src := path.Join(fs.srcDir, file)
 			dst := path.Join(fs.dstDir, file)
-
-			wg.Add(1)
-			gopool.Go(func() {
-				defer wg.Done()
-
-				cmp, err := cmpFile(dst, src)
-				if err != nil {
-					log.Printf("check file failed, %s, %s", file, err)
-					return
-				}
-				if !cmp {
-					log.Printf("The file contents are different: %s, %s", src, dst)
-					return
-				}
-			})
+			checkFile(&wg, file, src, dst)
 		}
 	}()
 	go func() {
@@ -59,4 +46,21 @@ func (fs *folderCheck) Exec() {
 	close(fs.modified)
 	close(fs.removed)
 	wg.Wait()
+}
+
+func checkFile(wg *sync.WaitGroup, file, src, dst string) {
+	wg.Add(1)
+	gopool.Go(func() {
+		defer wg.Done()
+
+		cmp, err := cmpFile(dst, src)
+		if err != nil {
+			log.Printf("check file failed, %s, %s", file, err)
+			return
+		}
+		if !cmp {
+			log.Printf("The file contents are different: %s, %s", src, dst)
+			return
+		}
+	})
 }
