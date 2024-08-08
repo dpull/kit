@@ -58,6 +58,11 @@ func main() {
 
 			makeFolderCheck(diff, srcDir, dstDir).Exec()
 			return
+		} else if len(args) == 2 {
+			srcDir := args[0]
+			dstDir := args[1]
+
+			makeFolderCheckDir(srcDir, dstDir).Exec()
 		}
 	}
 	flag.Usage()
