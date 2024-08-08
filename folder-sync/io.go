@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"log"
@@ -96,4 +97,28 @@ func walk(wg *sync.WaitGroup, files chan<- string, dir string) {
 			files <- fullPath
 		}
 	}
+}
+
+func readLines(path string) ([]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var lines []string
+	r := bufio.NewReader(f)
+	for {
+		// ReadLine is a low-level line-reading primitive.
+		// Most callers should use ReadBytes('\n') or ReadString('\n') instead or use a Scanner.
+		bytes, _, err := r.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return lines, err
+		}
+		lines = append(lines, string(bytes))
+	}
+	return lines, nil
 }

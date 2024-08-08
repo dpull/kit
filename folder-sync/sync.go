@@ -78,7 +78,7 @@ func readDiff(diffFile string, modified, removed chan<- string) error {
 	return nil
 }
 
-func syncFile(wg *sync.WaitGroup, file, dst, src string) {
+func syncFile(wg *sync.WaitGroup, file, src, dst string) {
 	wg.Add(1)
 	gopool.Go(func() {
 		defer wg.Done()

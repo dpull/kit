@@ -9,6 +9,7 @@ func main() {
 	diffFlag := flag.Bool("diff", false, "-diff src_ver.csv dst_ver.csv output.csv")
 	syncFlag := flag.Bool("sync", false, "-sync diff.csv src_dir dst_dir")
 	checkFlag := flag.Bool("check", false, "-check diff.csv src_dir dst_dir")
+	fixFlag := flag.Bool("fix", false, "-fix ignore.txt src_dir dst_dir")
 	flag.Parse()
 
 	args := flag.Args()
@@ -58,12 +59,19 @@ func main() {
 
 			makeFolderCheck(diff, srcDir, dstDir).Exec()
 			return
-		} else if len(args) == 2 {
-			srcDir := args[0]
-			dstDir := args[1]
-
-			makeFolderCheckDir(srcDir, dstDir).Exec()
 		}
 	}
+
+	if *fixFlag {
+		if len(args) == 3 {
+			ignore := args[0]
+			srcDir := args[1]
+			dstDir := args[2]
+
+			makeFolderCheckDir(ignore, srcDir, dstDir).Exec()
+			return
+		}
+	}
+
 	flag.Usage()
 }
