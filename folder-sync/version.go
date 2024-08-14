@@ -2,15 +2,13 @@ package main
 
 import (
 	"encoding/csv"
-	"hash/crc64"
+	"github.com/bytedance/gopkg/util/gopool"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/bytedance/gopkg/util/gopool"
 )
 
 const (
@@ -94,15 +92,9 @@ func getFilesVersion(basePath string, files chan string, filesVer chan<- fileVer
 					continue
 				}
 
-				data, err := os.ReadFile(path)
-				if err != nil {
-					log.Printf("read file:%s failed, %s", path, err)
-					continue
-				}
-
 				fileVer.modTime = st.ModTime().Unix()
 				fileVer.fileSize = st.Size()
-				fileVer.fileCRC = crc64.Checksum(data, crc64.MakeTable(crc64.ECMA))
+				fileVer.fileCRC = 0
 				filesVer <- fileVer
 			}
 		})
