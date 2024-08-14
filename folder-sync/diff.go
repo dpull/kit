@@ -49,7 +49,7 @@ func (fd *folderDiff) Exec() {
 		if ok {
 			delete(fd.removed, fileVer.path)
 		}
-		if ok && src.modTime == fileVer.modTime && src.fileSize == fileVer.fileSize && src.fileCRC == fileVer.fileCRC {
+		if ok && src.fileSize == fileVer.fileSize && src.fileCRC == fileVer.fileCRC {
 			continue
 		}
 		fd.modified[fileVer.path] = fileVer
