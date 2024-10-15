@@ -17,24 +17,18 @@ func ignoreName(path string) bool {
 }
 
 func findAllPaths(dir string, paths chan<- string) {
-	if ignoreName(dir) {
-		return
-	}
-
 	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 
-		if dir == path {
-			return nil
-		}
-
 		if d.IsDir() {
-			findAllPaths(path, paths)
 			return nil
 		}
 
+		if ignoreName(path) {
+			return nil
+		}
 		paths <- path
 		return nil
 	})
@@ -76,8 +70,14 @@ func main() {
 				continue
 			}
 
+			wg.Add(1)
 			gopool.Go(func() {
-				proc(rel, &versions)
+				defer wg.Done()
+
+				err := proc(rel, &versions)
+				if err != nil {
+					log.Printf("%s failed: %+v", rel, err)
+				}
 			})
 		}
 	}()
@@ -93,21 +93,24 @@ func main() {
 	}
 }
 
-func proc(file string, versions *validVersion) {
+func proc(file string, versions *validVersion) error {
 	svn := SVN{}
-	svn.Init("C:\\Program Files\\TortoiseSVN\\bin\\svn.exe")
 
 	blame, err := svn.Blame(file)
 	if err != nil {
-		log.Printf("getSvnBlameXml %s failed: %+v", file, err)
-		return
+		return err
 	}
 
 	ver, err := getVersion(blame)
 	if err != nil {
-		log.Printf("getVersion %s failed: %+v", file, err)
-		return
+		return err
+	}
+
+	err = removeEmptyLine(ver, file)
+	if err != nil {
+		return err
 	}
 
 	versions.add(file, ver)
+	return nil
 }

@@ -7,25 +7,19 @@ import (
 )
 
 type SVN struct {
-	Path string
-}
-
-func (s *SVN) Init(path string) {
-	if path == "" {
-		path = "svn"
-	}
-	s.Path = path
 }
 
 func (s *SVN) Blame(file string) (string, error) {
-	cmd := exec.Command(s.Path, "blame", "--xml", file)
+	cmd := exec.Command("svn", "blame", "--xml", file)
 
-	var out bytes.Buffer
-	cmd.Stdout = &out
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to run svn blame: %w", err)
+		return "", fmt.Errorf("failed to run svn blame: %w, %s", err, stderr.String())
 	}
 
-	return out.String(), nil
+	return stdout.String(), nil
 }
