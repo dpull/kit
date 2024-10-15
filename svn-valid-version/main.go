@@ -106,10 +106,7 @@ func proc(file string, versions *validVersion) error {
 		return err
 	}
 
-	err = removeEmptyLine(ver, file)
-	if err != nil {
-		return err
-	}
+	filterEmptyLine(ver, file)
 
 	versions.add(file, ver)
 	return nil

@@ -40,15 +40,15 @@ func getVersion(blame string) (map[int]string, error) {
 	return revisions, nil
 }
 
-func removeEmptyLine(revisions map[int]string, fileName string) error {
+func filterEmptyLine(revisions map[int]string, fileName string) {
 	ext := filepath.Ext(fileName)
 	if ext != ".h" && ext != ".cpp" {
-		return nil
+		return
 	}
 
 	file, err := os.Open(fileName)
 	if err != nil {
-		return err
+		return
 	}
 	defer file.Close()
 
@@ -65,8 +65,8 @@ func removeEmptyLine(revisions map[int]string, fileName string) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
+		return
 	}
 
-	return nil
+	return
 }

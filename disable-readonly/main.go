@@ -14,10 +14,6 @@ func ignoreName(path string) bool {
 }
 
 func findAllPaths(dir string, paths chan<- string) {
-	if ignoreName(dir) {
-		return
-	}
-
 	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -27,12 +23,11 @@ func findAllPaths(dir string, paths chan<- string) {
 			return nil
 		}
 
-		paths <- path
-
-		if d.IsDir() {
-			go findAllPaths(path, paths)
+		if ignoreName(path) {
 			return nil
 		}
+
+		paths <- path
 		return nil
 	})
 }
