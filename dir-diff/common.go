@@ -12,6 +12,8 @@ func isIncludeLine(line string) bool {
 	return strings.HasPrefix(line, "#include")
 }
 
+var timestampRegex = regexp.MustCompile(`\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9} \+\d{4}`)
+
 func filterIncludeLines(diffOutput string) string {
 	var result strings.Builder
 	var fileHeaders []string
@@ -20,8 +22,6 @@ func filterIncludeLines(diffOutput string) string {
 	var currentHunkHasNonIncludeDiff bool
 	var inHunk bool
 	var validHunks []string
-
-	timestampRegex := regexp.MustCompile(`\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9} \+\d{4}`)
 
 	scanner := bufio.NewScanner(strings.NewReader(diffOutput))
 	for scanner.Scan() {

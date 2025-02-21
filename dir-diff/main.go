@@ -12,6 +12,7 @@ func main() {
 	ue5Dir := flag.String("ue5", "", "Path to UE5 directory")
 	diffFile := flag.String("diff", "", "Input diff file path")
 	outputPath := flag.String("output", "", "Output file path")
+	includeDiff := flag.Bool("include", false, "Only output folder diff lines")
 	flag.Parse()
 
 	// Validate parameters based on mode
@@ -32,10 +33,19 @@ func main() {
 			fmt.Println("Usage: program -ue4 <ue4_dir> -ue5 <ue5_dir> -output <output_file>")
 			os.Exit(1)
 		}
-		processor := NewProcessor(*ue4Dir, *ue5Dir, *outputPath)
-		if err := processor.Process(); err != nil {
-			fmt.Printf("Error processing files: %v\n", err)
-			os.Exit(1)
+		if *includeDiff {
+			// New functionality for only outputting folder diff lines
+			processor := NewIncludeDiffProcessor(*ue4Dir, *ue5Dir, *outputPath)
+			if err := processor.Process(); err != nil {
+				fmt.Printf("Error processing folder diff: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			processor := NewProcessor(*ue4Dir, *ue5Dir, *outputPath)
+			if err := processor.Process(); err != nil {
+				fmt.Printf("Error processing files: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	}
 }
